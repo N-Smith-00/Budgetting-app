@@ -56,11 +56,12 @@ class TransactionSchema(marshmallow.Schema):
     
 
 class User():
-    def __init__(self, username: str, password: str, balance: float, transactions: [Transaction]=[]) -> None:
+    def __init__(self, username: str, password: str, balance: float, transactions: [Transaction]=[], spending: float=0) -> None:
         self._name = username
         self.password = password
         self._balance = balance
         self._transactions = transactions
+        self._spending_target = spending
         
     def get_name(self) -> str:
         return self._name
@@ -76,9 +77,16 @@ class User():
     
     def get_transaction_ids(self) -> list:
         return [transaction.id for transaction in self._transactions]
+    
+    def get_spending(self) -> float:
+        return self._spending_target
 
     def create_transaction(self, amount: float, date: str, description: str, debit: bool) -> None:
         self._transactions.append(Transaction(amount, date, description, debit, self))
+        if debit:
+            self._balance -= amount
+        else:
+            self._balance += amount
     
     def delete_transaction(self, transaction) -> None:
         self._transactions.remove(transaction)
@@ -89,6 +97,7 @@ class UserSchema(marshmallow.Schema):
     password = marshmallow.fields.Str()
     balance = marshmallow.fields.Float()
     transactions = marshmallow.fields.List(marshmallow.fields.Nested(TransactionSchema))
+    spending = marshmallow.fields.Float()
     
     @marshmallow.post_load
     def make_user(self, data, **kwargs):
