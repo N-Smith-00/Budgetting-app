@@ -1,43 +1,49 @@
 from datetime import datetime
+import uuid
 import marshmallow
 
 
 class Transaction():
-    def __init__(self, amount: float, date: str, debit: bool, description: str=''):
+    def __init__(self, app, amount: float, date: str, debit: bool, description: str='') -> None:
+        unique = False
+        while not unique:
+            id = str(uuid.uuid4())
+            if id not in app.get_transaction_ids():
+                unique = True
         self.date = self._check_date(date)
         if debit:
             self.amount = -amount
             
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.date} {self.amount} {self.description}"
     
-    def get_amount(self):
+    def get_amount(self) -> float:
         return self.amount
     
-    def get_date(self):
+    def get_date(self) -> datetime:
         return self.date
     
-    def get_description(self):
+    def get_description(self) -> str:
         return self.description
     
-    def get_type(self):
+    def get_type(self) -> str:
         if self.debit:
             return "Debit"
         else:
             return "Credit"
     
-    def set_date(self, date):
+    def set_date(self, date) -> None:
         self.date = self._check_date(date)
     
-    def set_description(self, description: str):
+    def set_description(self, description: str) -> None:
         self.description = description
     
-    def set_amount(self, amount: float, debit: bool):
+    def set_amount(self, amount: float, debit: bool) -> None:
         self.amount = amount
         if debit:
             self.amount = -amount
     
-    def _check_date(self, date: str):
+    def _check_date(self, date: str) -> datetime:
         try:
             return datetime.strptime(date, "%d %m %Y")
         except ValueError:
@@ -52,28 +58,31 @@ class TransactionSchema(marshmallow.Schema):
     
 
 class User():
-    def __init__(self, username: str, password: str, starting_balance: float):
+    def __init__(self, username: str, password: str, starting_balance: float) -> None:
         self._name = username
         self.password = password
         self._balance = starting_balance
         self._transactions = []
         
-    def get_name(self):
+    def get_name(self) -> str:
         return self._name
     
-    def set_username(self, username: str):
+    def set_username(self, username: str) -> None:
         self._name = username
     
-    def get_balance(self):
+    def get_balance(self) -> float:
         return self._balance
     
-    def get_transactions(self):
+    def get_transactions(self) -> list:
         return self._transactions
+    
+    def get_transaction_ids(self) -> list:
+        return [transaction.id for transaction in self._transactions]
 
-    def create_transaction(self, amount: float, date: str, description: str, debit: bool):
+    def create_transaction(self, amount: float, date: str, description: str, debit: bool) -> None:
         self._transactions.append(Transaction(amount, date, description, debit, self))
     
-    def delete_transaction(self, transaction):
+    def delete_transaction(self, transaction) -> None:
         self._transactions.remove(transaction)
     
     def save(self):
@@ -88,22 +97,23 @@ class UserSchema(marshmallow.Schema):
     
 
 class App():
-    def __init__(self):
+    def __init__(self) -> None:
+        self._transaction_ids = []
         self._users = []
         self._current_user = None
         self.running = True
     
-    def run(self):
+    def run(self) -> None:
         while self.running:
             if User == None:
                 self._main_menu()
     
-    def _exit(self):
+    def _exit(self) -> None:
         self.running = False
         for user in self._users:
             user.save()
             
-    def _main_menu(self):
+    def _main_menu(self) -> None:
         print("1. Login")
         print("2. Create User")
         print("3. Exit")
@@ -146,7 +156,7 @@ class App():
         
         return
     
-    def _login(self):
+    def _login(self) -> None:
         username = input("Username: ")
         password = input("Password: ")
         for user in self._users:
@@ -155,7 +165,7 @@ class App():
                 return
         print("Incorrect username or password")
     
-    def _user_menu(self):
+    def _user_menu(self) -> None:
         print("1. View Balance")
         print("2. View Transactions")
         print("3. Add Transaction")
@@ -177,4 +187,6 @@ class App():
             case '6':
                 self._exit()
             
-        
+class AppSchema(marshmallow.Schema):
+    transaction_ids = marshmallow.fields.List(marshmallow.fields.Str())
+    users = marshmallow.fields.List(marshmallow.fields.Nested(UserSchema))
