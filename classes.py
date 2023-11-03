@@ -1,5 +1,5 @@
 from datetime import datetime
-import marshmallow
+import marshmallow, math, os
 
 
 class Transaction():
@@ -75,9 +75,6 @@ class User():
     def get_transactions(self) -> list:
         return self._transactions
     
-    def get_transaction_ids(self) -> list:
-        return [transaction.id for transaction in self._transactions]
-    
     def get_spending(self) -> float:
         return self._spending_target
 
@@ -112,9 +109,15 @@ class App():
         self.running = True
     
     def run(self) -> None:
-        while self.running:
-            if User == None:
-                self._main_menu()
+        try:
+            while self.running:
+                if self._current_user == None:
+                    self._main_menu()
+                else:
+                    self._user_menu()
+            self._exit()
+        except:
+            self._exit()
     
     def _exit(self) -> None:
         self.running = False
@@ -122,6 +125,9 @@ class App():
         with open("data.txt", "w") as file:
             file.write(result)
         file.close()
+        
+    def clear(self) -> None:
+        os.system('cls' if os.name == 'nt' else 'clear')
             
     def _main_menu(self) -> None:
         print("1. Login")
@@ -135,6 +141,8 @@ class App():
                 self._create_user()
             case '3':
                 self.running = False
+            case _:
+                print("Invalid choice")
     
     def _create_user(self):
         unique = False
@@ -178,26 +186,70 @@ class App():
     def _user_menu(self) -> None:
         print("1. View Balance")
         print("2. View Transactions")
-        print("3. Add Transaction")
+        print("3. Create Transaction")
         print("4. Delete Transaction")
         print("5. Logout")
         print("6. Exit")
         choice = input("Enter choice: ")
         match choice:
             case '1':
-                self._view_balance()
+                self.get_balance()
             case '2':
-                self._view_transactions()
+                self._current_user.get_transactions()
             case '3':
-                self._add_transaction()
+                self.create_transaction()
             case '4':
-                self._delete_transaction()
+                self.delete_transaction()
             case '5':
                 self._current_user = None
             case '6':
                 self._exit()
+            case _:
+                print("Invalid choice")
     
+    def create_transaction(self) -> None:
+        amount = float(input("Amount: "))
+        date = input("Date: ")
+        description = input("Description: ")
+        valid = False
+        while not valid:
+            debit_a = input("Debit? (y/n): ")
+            if debit_a.lower() == 'y':
+                debit = True
+            elif debit_a.lower() == 'n':
+                debit = False
+        self._current_user.create_transaction(amount, date, description, debit)
+    
+    def delete_transaction(self) -> None:
+        finished = False
+        page = 0
+        while not finished:
+            self.clear()
+            transactions = self._current_user.get_transactions()
+            page += 1
+            print("Transactions:")
+            if len(transactions) == 0:
+                print("No transactions")
+            else:
+                for t in transactions:
+                    print(t)
+            t = input("Enter transaction number to delete, or 0 to exit: ")
+            if t == '0':
+                finished = True
+            else:
+                try:
+                    self._current_user.delete_transaction(transactions[int(t)-1])
+                except IndexError:
+                    print("Invalid transaction number")
+                    print("Press enter to continue")
             
+    def get_balance(self) -> None:
+        print(self._current_user.get_balance())
+        
+    def get_transactions(self) -> None:
+        for transaction in self._current_user.get_transactions():
+            print(transaction)
+        
 class AppSchema(marshmallow.Schema):
     transaction_ids = marshmallow.fields.List(marshmallow.fields.Str())
     users = marshmallow.fields.List(marshmallow.fields.Nested(UserSchema))
