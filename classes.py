@@ -1,15 +1,9 @@
 from datetime import datetime
-import uuid
 import marshmallow
 
 
 class Transaction():
-    def __init__(self, app, amount: float, date: str, debit: bool, description: str='') -> None:
-        unique = False
-        while not unique:
-            id = str(uuid.uuid4())
-            if id not in app.get_transaction_ids():
-                unique = True
+    def __init__(self, amount: float, date: str, debit: bool, description: str='') -> None:
         self.date = self._check_date(date)
         if debit:
             self.amount = -amount
@@ -56,13 +50,17 @@ class TransactionSchema(marshmallow.Schema):
     description = marshmallow.fields.Str()
     debit = marshmallow.fields.Boolean()
     
+    @marshmallow.post_load
+    def make_transaction(self, data, **kwargs):
+        return Transaction(**data)
+    
 
 class User():
-    def __init__(self, username: str, password: str, starting_balance: float) -> None:
+    def __init__(self, username: str, password: str, balance: float, transactions: [Transaction]=[]) -> None:
         self._name = username
         self.password = password
-        self._balance = starting_balance
-        self._transactions = []
+        self._balance = balance
+        self._transactions = transactions
         
     def get_name(self) -> str:
         return self._name
@@ -84,9 +82,6 @@ class User():
     
     def delete_transaction(self, transaction) -> None:
         self._transactions.remove(transaction)
-    
-    def save(self):
-        self.transactions = marshmallow.dump(self._transactions)
         
         
 class UserSchema(marshmallow.Schema):
@@ -95,11 +90,15 @@ class UserSchema(marshmallow.Schema):
     balance = marshmallow.fields.Float()
     transactions = marshmallow.fields.List(marshmallow.fields.Nested(TransactionSchema))
     
+    @marshmallow.post_load
+    def make_user(self, data, **kwargs):
+        return User(**data)
+    
 
 class App():
-    def __init__(self) -> None:
-        self._transaction_ids = []
-        self._users = []
+    def __init__(self, transaction_ids: [str]=[], users: [User]=[]) -> None:
+        self._transaction_ids = transaction_ids
+        self._users = users
         self._current_user = None
         self.running = True
     
@@ -110,8 +109,10 @@ class App():
     
     def _exit(self) -> None:
         self.running = False
-        for user in self._users:
-            user.save()
+        result = AppSchema().dumps(self)
+        with open("data.txt", "w") as file:
+            file.write(result)
+        file.close()
             
     def _main_menu(self) -> None:
         print("1. Login")
@@ -186,7 +187,12 @@ class App():
                 self._current_user = None
             case '6':
                 self._exit()
+    
             
 class AppSchema(marshmallow.Schema):
     transaction_ids = marshmallow.fields.List(marshmallow.fields.Str())
     users = marshmallow.fields.List(marshmallow.fields.Nested(UserSchema))
+    
+    @marshmallow.post_load
+    def make_app(self, data, **kwargs):
+        return App(**data)
